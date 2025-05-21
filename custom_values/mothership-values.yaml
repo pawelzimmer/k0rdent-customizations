@@ -1,0 +1,38 @@
+cert-manager:
+  enabled: true
+  cluster-issuer:
+    create: false
+    provider: self-signed
+    name: selfsigned-cluster-issuer
+  email: mail@example.net
+
+kcm:
+  namespace: kcm-system
+  installTemplates: true
+  kof:
+    repo:
+      name: kof
+      spec:
+        type: oci
+        url: oci://10.244.0.1:30500/k0rdent/kof/charts
+
+victoria-metrics-operator:
+  watchNamespaces: ["kof"]
+
+grafana:
+  enabled: true
+  ingress:
+    enabled: true
+    host: grafana.pzimmer-kof6.cso-k0rdent-lab-team.eu-cloud.mirantis.net
+  security:
+    credentials_secret_name: grafana-mothership-admin-credentials
+  alerts:
+    enabled: true
+#defaultRules:
+#  rules:
+#    CapiControllerDown:
+#      create: false
+#  groups:
+#    control-plane-alerts:
+#      create: true
+

@@ -1,0 +1,17 @@
+grafana:
+  enabled: false
+  security:
+    create_secret: false
+  alerts:
+    enabled: false
+promxy:
+  enabled: true
+victoria-metrics-operator:
+  enabled: false
+victoriametrics:
+  enabled: false
+  'vmcluster:':
+    vmstorage:
+      storage:
+        size: 20Gi
+

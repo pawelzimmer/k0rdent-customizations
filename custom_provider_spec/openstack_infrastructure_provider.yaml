@@ -1,0 +1,116 @@
+piVersion: operator.cluster.x-k8s.io/v1alpha2
+kind: InfrastructureProvider
+metadata:
+  annotations:
+    meta.helm.sh/release-name: cluster-api-provider-openstack
+    meta.helm.sh/release-namespace: kcm-system
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    helm.toolkit.fluxcd.io/name: cluster-api-provider-openstack
+    helm.toolkit.fluxcd.io/namespace: kcm-system
+  name: openstack
+  namespace: kcm-system
+spec:
+  manager:
+    health: {}
+    metrics: {}
+    verbosity: 1
+    webhook: {}
+  version: v0.12.2
+  manifestPatches:
+  - |
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: capo-controller-manager
+    spec:
+      selector:
+        matchLabels:
+          control-plane: capo-controller-manager
+      template:
+        metadata:
+          labels:
+            control-plane: capo-controller-manager
+        spec:
+          containers:
+          - args:
+            - --leader-elect
+            - --v=2
+            - --diagnostics-address=:8443
+            command:
+            - /manager
+            image: registry.k8s.io/capi-openstack/capi-openstack-controller:v0.12.2
+            imagePullPolicy: IfNotPresent
+            livenessProbe:
+              failureThreshold: 3
+              httpGet:
+                path: /healthz
+                port: healthz
+                scheme: HTTP
+              periodSeconds: 10
+              successThreshold: 1
+              timeoutSeconds: 1
+            name: manager
+            ports:
+            - containerPort: 9443
+              name: webhook-server
+              protocol: TCP
+            - containerPort: 9440
+              name: healthz
+              protocol: TCP
+            - containerPort: 8443
+              name: metrics
+              protocol: TCP
+            readinessProbe:
+              failureThreshold: 3
+              httpGet:
+                path: /readyz
+                port: healthz
+                scheme: HTTP
+              periodSeconds: 10
+              successThreshold: 1
+              timeoutSeconds: 1
+            resources: {}
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                - ALL
+              privileged: false
+              runAsGroup: 65532
+              runAsUser: 65532
+            terminationMessagePath: /dev/termination-log
+            terminationMessagePolicy: FallbackToLogsOnError
+            volumeMounts:
+            - mountPath: /tmp/k8s-webhook-server/serving-certs
+              name: cert
+              readOnly: true
+          dnsPolicy: ClusterFirst
+          restartPolicy: Always
+          schedulerName: default-scheduler
+          securityContext:
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          serviceAccount: capo-manager
+          serviceAccountName: capo-manager
+          terminationGracePeriodSeconds: 10
+          tolerations:
+          - effect: NoSchedule
+            key: node-role.kubernetes.io/master
+          - effect: NoSchedule
+            key: node-role.kubernetes.io/control-plane
+          volumes:
+          - name: cert
+            secret:
+              defaultMode: 420
+              secretName: capo-webhook-service-cert
+
+            spec:
+              containers:
+              - name: manager
+                ports:
+                - name: metrics
+                  containerPort: 6789
+
+

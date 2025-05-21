@@ -1,0 +1,98 @@
+global:
+  clusterLabel: clusterName
+  clusterName: mothership
+kcm:
+  monitoring: true
+  namespace: kcm-system
+kubeApiServer:
+  additionalLabels:
+    clusterName: mothership
+collectors:
+  enabled: true
+  k8scluster:
+    service:
+      extensions:
+      - basicauth/metrics
+      - basicauth/logs
+      pipelines:
+        logs:
+          exporters:
+          - otlphttp
+          - debug
+          processors:
+          - resource/k8s_events
+          - batch
+          receivers:
+          - k8s_events
+        metrics:
+          exporters:
+          - prometheusremotewrite
+          processors:
+          - batch
+          receivers:
+          - k8s_cluster
+          - prometheus
+
+    receivers:
+      k8s_cluster:
+        allocatable_types_to_report:
+          - cpu
+          - memory
+          - storage
+        auth_type: serviceAccount
+        collection_interval: 10s
+        node_conditions_to_report:
+          - Ready
+          - MemoryPressure
+          - DiskPressure
+          - NetworkUnavailable
+      k8s_events:
+        auth_type: serviceAccount
+      prometheus:
+        config:
+          global:
+            external_labels:
+              clusterName: mothership
+          scrape_configs:
+          - job_name: etcd
+            kubernetes_sd_configs:
+            - role: pod
+            relabel_configs:
+            - action: keep
+              regex: kube-system/etcd.+
+              separator: /
+              source_labels:
+              - __meta_kubernetes_namespace
+              - __meta_kubernetes_pod_name
+            - action: replace
+              regex: (.*)
+              replacement: $$1:2379
+              source_labels:
+              - __meta_kubernetes_pod_ip
+              target_label: __address__
+            scheme: https
+            tls_config:
+              insecure_skip_verify: true
+          - bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+            job_name: apiserver
+            kubernetes_sd_configs:
+            - role: endpoints
+            relabel_configs:
+            - replacement: kubernetes.default.svc.cluster.local:443
+              target_label: __address__
+            - regex: (.+)
+              replacement: /api/v1/nodes/$${1}/proxy/metrics
+              source_labels:
+              - __meta_kubernetes_node_name
+              target_label: __metrics_path__
+            - source_labels:
+              - __meta_kubernetes_node_name
+              target_label: node
+            scheme: https
+            tls_config:
+              ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+              insecure_skip_verify: false
+              server_name: kubernetes
+
+
+
