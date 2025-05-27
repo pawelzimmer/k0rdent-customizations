@@ -10,10 +10,14 @@ kubeApiServer:
 collectors:
   enabled: true
   k8scluster:
+    extensions:
+      bearertokenauth:
+        filename: /var/run/secrets/kubernetes.io/serviceaccount/token
     service:
       extensions:
       - basicauth/metrics
       - basicauth/logs
+      - bearertokenauth
       pipelines:
         logs:
           exporters:
@@ -32,8 +36,19 @@ collectors:
           receivers:
           - k8s_cluster
           - prometheus
-
+          - httpcheck
     receivers:
+      httpcheck:
+        collection_interval: 10s
+        targets:
+        - auth:
+            authenticator: bearertokenauth
+          endpoint: https://kubernetes.default.svc.cluster.local/readyz
+          method: GET
+          tls:
+            insecure_skip_verify: true
+        - endpoint: http://nginx-svc.default.svc.cluster.local
+          method: GET
       k8s_cluster:
         allocatable_types_to_report:
           - cpu
