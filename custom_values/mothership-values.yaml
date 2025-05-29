@@ -28,11 +28,51 @@ grafana:
     credentials_secret_name: grafana-mothership-admin-credentials
   alerts:
     enabled: true
-#defaultRules:
-#  rules:
-#    CapiControllerDown:
-#      create: false
+defaultRules:
+  rules:
+    CapiControllerDown:
+      create: false
+    Watchdog:
+      create: true
+      spec:
+        labels:
+          severity: info
+          service: kof
+          host: alertmanager
+          subject: '[INFORMATIONAL] Watchdog'
+
 #  groups:
 #    control-plane-alerts:
 #      create: true
+victoriametrics:
+  vmalert:
+    enabled: true
+    remoteRead: ""
+    extraArgs:
+      externalURL: 'https://grafana.example.com'
+      externalAlertSource: 'alerting/groups?groupBy=alertname&queryString=urlencoded(join(‘ ’,labelname=labelvalue))'
+    vmalertmanager:
+      externalURL: "https://grafana.example.com"
+      config: |
+        global:
+          resolve_timeout: 5m
+        route:
+          receiver: Salesforce
+          routes:
+          - receiver: Salesforce
+            matchers:
+            - alertname="Watchdog"
+          - receiver: blackhole
+            matchers:
+            - severity=~"info|warning"
+        receivers:
+          - name: Salesforce
+            webhook_configs:
+              - send_resolved: true
+                http_config:
+                  follow_redirects: true
+                  enable_http2: true
+                url: 'http://sf-notifier:5000/hook'
+                max_alerts: 0
+          - name: blackhole
 
